@@ -1,0 +1,10 @@
+# 0: stop recording, 1: start recording
+int8 action
+
+# Absolute path location folder to save the camera recordings
+string path
+
+---
+# returns 0 if ok, -1 otherwise
+bool success
+string message
