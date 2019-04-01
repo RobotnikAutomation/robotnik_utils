@@ -66,7 +66,6 @@ class RosbagProcessManager():
         self.compression_ = params['compression']
         self.setOutputPath(params['output_path'])
 
-
     def initialize(self):
         """
             Initialize
@@ -497,7 +496,7 @@ class RosBagManager:
         rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %d, path = %s'%(req.action, req.path))
 
         # Initializes rosbag process
-        if not self.is_recording and req.action == 1:
+        if not self.is_recording and req.action == Record.START:
             if req.path == '':
                 req.path = self.process_manager.output_path_
             if not req.path.endswith('/'):
@@ -526,7 +525,7 @@ class RosBagManager:
         self.info_file.writelines('ros_init_time: [%d,%d]\n'%(self.init_record_time.secs, self.init_record_time.nsecs))
             return True,"Recording initialized"
 
-        elif self.is_recording and req.action == 0:
+        elif self.is_recording and req.action == Record.STOP:
             self.process_manager.stopCommand()
             time.sleep(1)
             end_time = rospy.Time.now()
@@ -542,9 +541,9 @@ class RosBagManager:
             self.is_recording = False
             return True, "Stop recording"
 
-        elif self.is_recording and req.action == 1:
+        elif self.is_recording and req.action == Record.START:
             return True, "Already recording"
-        elif not self.is_recording and req.action == 0:
+        elif not self.is_recording and req.action == Record.STOP:
             return True, "Nothing to do"
 
         return False,""
@@ -571,9 +570,9 @@ class RosBagManager:
             Returns a bag filename based on datetime (2015-06-18_22_53_42)
         """
         d = str(datetime.datetime.now())
-        d1_s =  d.replace(' ', '_')
-        d2_s =  d1_s.replace(':', '_')
-        d3_s =  d2_s.split('.')[0]
+        d1_s = d.replace(' ', '_')
+        d2_s = d1_s.replace(':', '_')
+        d3_s = d2_s.split('.')[0]
 
         return d3_s
 

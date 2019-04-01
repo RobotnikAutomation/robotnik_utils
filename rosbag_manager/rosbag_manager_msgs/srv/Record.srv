@@ -1,4 +1,6 @@
 # 0: stop recording, 1: start recording
+int8 STOP=0
+int8 START=1
 int8 action
 
 # Absolute path location folder to save the camera recordings
