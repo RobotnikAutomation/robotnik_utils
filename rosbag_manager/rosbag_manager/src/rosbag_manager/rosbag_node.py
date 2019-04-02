@@ -37,13 +37,14 @@ import rospkg
 
 import time, threading
 import os
+import os.path
 import signal
 import exceptions
 import datetime
 import commands
-
+import re
 from robotnik_msgs.msg import State
-from rosbag_manager_msgs.srv import Record
+from rosbag_manager_msgs.srv import Record, RecordRequest, RecordResponse
 from rosbag_manager_msgs.msg import RosbagManagerState
 
 
@@ -61,10 +62,12 @@ class RosbagProcessManager():
         self.buffer_size_ = params['buffer_size']
         self.chunk_size_ =  params['chunk_size']
         self.topics_ = params['topics']
+        self.expanded_topics_ = list(self.topics_)
         self.split_ = params['split']
         self.split_size_ = params['split_size']
         self.compression_ = params['compression']
-        self.setOutputPath(params['output_path'])
+        # output_path should be folder_path, as it is not the file name
+        self.output_path_ = params['output_path']
 
     def initialize(self):
         """
@@ -93,6 +96,8 @@ class RosbagProcessManager():
         self.output_path_ = output
         self.setCommandArguments()
 
+    def getOutputPath(self):
+        return self.output_path_
 
     def setCommandArguments(self):
         """
@@ -109,9 +114,42 @@ class RosbagProcessManager():
             self.args = self.args + ('--bz2',  )
 
         self.args = self.args + ('-O',  self.output_path_)
-        for i in self.topics_:
-            self.args = self.args + (i, )
 
+        self.expandTopics()
+
+        for topic in self.expanded_topics_:
+            self.args = self.args + (topic, )
+
+    def expandTopics(self):
+        """
+            Expands topic names according to what is reported by the ROS Master
+        """
+        published_topics = [topic[0] for topic in rospy.get_published_topics()]
+
+        # add namespace if topics are not absolute
+        qualified_topics = map(lambda topic : topic if topic.startswith('/') else rospy.get_namespace() + topic, self.topics_)
+
+        # expand topics that are regular expresions
+        expanded_topics = []
+        for topic in qualified_topics:
+            r = re.compile(topic)
+            et = filter(r.match, published_topics)
+            if len(et) != 0:
+                expanded_topics += et
+            else:
+                # check if topic is valid (not a regex), but does not match current topics.
+                # then subscribe to it, because can be published after this node is started
+                # and if is not valid, do not subscribe because then we can get some errors
+                if re.match('^[[a-zA-Z]|/\w]?[\w|/]*$', topic):
+                    expanded_topics += [topic]
+
+        # remove duplicates, just in case
+        self.expanded_topics_ = []
+        for topic in expanded_topics:
+            if topic in self.expanded_topics_:
+                rospy.logwarn('RosbagProcessManager: topic %s is twice in your config file, recording just one instance' % topic)
+            else:
+                self.expanded_topics_.append(topic)
 
     def runCommand(self):
         """
@@ -496,36 +534,41 @@ class RosBagManager:
         rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %d, path = %s'%(req.action, req.path))
 
         # Initializes rosbag process
-        if not self.is_recording and req.action == Record.START:
-            if req.path == '':
-                req.path = self.process_manager.output_path_
-            if not req.path.endswith('/'):
-                req.path = req.path + '/'
+        if not self.is_recording and req.action == RecordRequest.START:
+            folder_path = req.path
+            if folder_path == '':
+                folder_path = self.process_manager.getOutputPath()
+            if not folder_path.endswith('/'):
+                folder_path = folder_path + '/'
 
-            if self.createDirectoryTree(req.path)!= 0:
-                rospy.logerr('RosbagManager:setRecorgingServiceCb: Error creating directory tree at %s'%req.path)
-                return False, "Error creating directory tree at %s"%(req.path)
-        self.bag_name = self.createBagName()
-        #self.bag_name = "data" # Generic bag name
-        self.bag_path = req.path
-        self.process_manager.setOutputPath(req.path+self.bag_name)
-        # Opens the file to save the info of the bag
-        self.createInfoFile(req.path+self.bag_name+'_info.yaml')
+            folder_path = os.path.expanduser(os.path.expandvars(folder_path))
 
-        if self.process_manager.runCommand() != 0:
-        rospy.logerr('RosbagManager:setRecorgingServiceCb: Error executing the command')
-        return False, 'Error running the rosbag process'
+            if self.createDirectoryTree(folder_path)!= 0:
+                rospy.logerr('RosbagManager:setRecorgingServiceCb: Error creating directory tree at %s'%folder_path)
+                return False, "Error creating directory tree at %s"%(folder_path)
+            self.bag_name = req.name
+            if self.bag_name == '':
+                self.bag_name = self.createBagName()
+            #self.bag_name = "data" # Generic bag name
+            self.bag_path = folder_path
+            self.process_manager.setOutputPath(folder_path+self.bag_name)
+            # Opens the file to save the info of the bag
+            self.createInfoFile(folder_path+self.bag_name+'_info.yaml')
 
-        self.init_record_time = rospy.Time.now()
-        self.is_recording = True
-        self.msg_state.path = self.bag_path
-        self.msg_state.compression = self.process_manager.compression_
+            if self.process_manager.runCommand() != 0:
+                rospy.logerr('RosbagManager:setRecorgingServiceCb: Error executing the command')
+                return False, 'Error running the rosbag process'
 
-        self.msg_state.bag_name = self.bag_name
-        self.info_file.writelines('ros_init_time: [%d,%d]\n'%(self.init_record_time.secs, self.init_record_time.nsecs))
+            self.init_record_time = rospy.Time.now()
+            self.is_recording = True
+            self.msg_state.path = self.bag_path
+            self.msg_state.compression = self.process_manager.compression_
+
+            self.msg_state.bag_name = self.bag_name
+            self.info_file.writelines('ros_init_time: [%d,%d]\n'%(self.init_record_time.secs, self.init_record_time.nsecs))
             return True,"Recording initialized"
 
-        elif self.is_recording and req.action == Record.STOP:
+        elif self.is_recording and req.action == RecordRequest.STOP:
             self.process_manager.stopCommand()
             time.sleep(1)
             end_time = rospy.Time.now()
@@ -533,20 +576,19 @@ class RosBagManager:
             self.info_file.writelines(['ros_end_time: [%d,%d]\n'%(end_time.secs, end_time.nsecs), 'time_recording: %d\n'%(end_time - self.init_record_time).to_sec(),
             'size: %.4lf\n'%self.msg_state.stored_size, 'buffsize: %d\n'%self.process_manager.buffer_size_, 'chunksize: %d\n'%self.process_manager.chunk_size_,
             'topics: %s\n'%self.process_manager.topics_, 'path: %s\n'%self.bag_path, 'bag_files: %s\n'%self.getBagFiles(self.process_manager.output_path_),
-            'compression: %s\n'%self.process_manager.compression_, 'split: %s\n'%self.process_manager.split_]
-             )
+            'compression: %s\n'%self.process_manager.compression_, 'split: %s\n'%self.process_manager.split_])
             if self.process_manager.split_:
                 self.info_file.write('split_size: %d\n'%self.process_manager.split_size_)
             self.closeInfoFile()
             self.is_recording = False
             return True, "Stop recording"
 
-        elif self.is_recording and req.action == Record.START:
+        elif self.is_recording and req.action == RecordRequest.START:
             return True, "Already recording"
-        elif not self.is_recording and req.action == Record.STOP:
+        elif not self.is_recording and req.action == RecordRequest.STOP:
             return True, "Nothing to do"
 
-        return False,""
+        return False,"Should never reach here"
 
 
     def createDirectoryTree(self, path):

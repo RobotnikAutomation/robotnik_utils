@@ -3,9 +3,10 @@ int8 STOP=0
 int8 START=1
 int8 action
 
+# Name of the bag file. If empty string, bag file will be named with date and time
+string name
 # Absolute path location folder to save the camera recordings
 string path
-
 ---
 # returns 0 if ok, -1 otherwise
 bool success

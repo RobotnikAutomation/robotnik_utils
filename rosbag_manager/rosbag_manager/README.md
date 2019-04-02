@@ -40,8 +40,9 @@ Starts/stops the rosbag on demand.
 
 *service params*
 
-* action (int): 1 -> start, 0 -> stop
-* path: path folder to save the rosbag. If empty it'll take the defined in the ROS params.
+* action (int): RecordRequest.START (1), RecordRequest.STOP (0) 
+* name (string): filename of the rosbag 
+* path (string): path folder to save the rosbag. If empty it'll take the defined in the ROS params.
 
 Example:
 ```
@@ -53,7 +54,9 @@ path: ''"
 
 **output_path** (string, default: "rosbag_manager")
 
-Path to save all the files
+Path to save all the files.
+
+Path can be absolute, relative to running folder and with environment variables (which will be expanded, such as $HOME or ~)
 
 **buffer_size** (int, default: 2048)
 
@@ -66,6 +69,11 @@ Advanced. Record to chunks of SIZE KB (Default: 768). This is a buffer within th
 
 **topics** (array of strings, default: [])
 List of topics to save in the rosbag
+
+Topics can be:
+* absolute
+* relative to current namespace (public namespace of the node, not private)
+* expressed as regular expressions
 
 **split**  (bool, default: False)
 
