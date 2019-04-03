@@ -1,6 +1,9 @@
-# 0: stop recording, 1: start recording
+#  1: start recording
+#  0: stop recording
+# -1: stop and discard recording
 int8 STOP=0
 int8 START=1
+int8 DISCARD=-1
 int8 action
 
 # Name of the bag file. If empty string, bag file will be named with date and time
