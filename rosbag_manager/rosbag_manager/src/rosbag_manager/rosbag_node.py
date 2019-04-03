@@ -45,7 +45,7 @@ import commands
 import re
 from robotnik_msgs.msg import State
 from rosbag_manager_msgs.srv import Record, RecordRequest, RecordResponse
-from rosbag_manager_msgs.msg import RosbagManagerState
+from rosbag_manager_msgs.msg import RosbagManagerStatus
 
 
 DEFAULT_FREQ = 10.0
@@ -218,9 +218,9 @@ class RosBagManager:
         # Variable used to control the loop frequency
         self.time_sleep = 1.0 / self.desired_freq
         # State msg to publish
-        self.msg_state = RosbagManagerState()
+        self.msg_status = RosbagManagerStatus()
         # Timer to publish state
-        self.publish_state_timer = 1
+        self.publish_status_timer = 1
         # Flag active when recording
         self.is_recording = False
         # Saves the moment of the initialization
@@ -230,7 +230,7 @@ class RosBagManager:
         # Saves the name of the bag path
         self.bag_path = ''
 
-        self.t_publish_state = threading.Timer(self.publish_state_timer, self.publishROSstate)
+        self.t_publish_status = threading.Timer(self.publish_status_timer, self.publishROSstate)
 
 
     def setup(self):
@@ -253,7 +253,8 @@ class RosBagManager:
         if self.ros_initialized:
             return 0
 
-        self._state_publisher = rospy.Publisher('~state', RosbagManagerState, queue_size=10)
+        self._status_publisher = rospy.Publisher('~status', RosbagManagerStatus, queue_size=1)
+        self._state_publisher = rospy.Publisher('~state', State, queue_size=1)
 
         # Services
         self._set_recording_service = rospy.Service('~set_recording', Record, self.setRecordingServiceCb)
@@ -279,10 +280,7 @@ class RosBagManager:
             self.process_manager.stopCommand()
             self.is_recording = False
 
-        # Cancels current timers
-        self.t_publish_state.cancel()
-
-        self._state_publisher.unregister()
+        self.rosShutdown()
 
         self.initialized = False
 
@@ -298,6 +296,8 @@ class RosBagManager:
             return -1
 
         # Performs ROS topics & services shutdown
+        self.t_publish_status.cancel()
+        self._status_publisher.unregister()
         self._state_publisher.unregister()
 
         self.ros_initialized = False
@@ -508,22 +508,23 @@ class RosBagManager:
         '''
             Publish the State of the component at the desired frequency
         '''
-        self.msg_state.header.stamp = rospy.Time.now()
-        self.msg_state.state.state = self.state
-        self.msg_state.state.state_description = self.stateToString(self.state)
-        self.msg_state.state.desired_freq = self.desired_freq
-        self.msg_state.state.real_freq = self.real_freq
-        self.msg_state.recording = self.is_recording
+        self.msg_status.header.stamp = rospy.Time.now()
+        self.msg_status.state.state = self.state
+        self.msg_status.state.state_description = self.stateToString(self.state)
+        self.msg_status.state.desired_freq = self.desired_freq
+        self.msg_status.state.real_freq = self.real_freq
+        self.msg_status.recording = self.is_recording
         if self.is_recording:
-            self.msg_state.time_recording = (rospy.Time.now() - self.init_record_time).to_sec()
-            self.msg_state.stored_size = self.getBagSize(self.msg_state.path+self.bag_name) /1000000.0
+            self.msg_status.time_recording = (rospy.Time.now() - self.init_record_time).to_sec()
+            self.msg_status.stored_size = self.getBagSize(self.msg_status.path+self.bag_name) /1000000.0
 
 
 
-        self._state_publisher.publish(self.msg_state)
+        self._status_publisher.publish(self.msg_status)
+        self._state_publisher.publish(self.msg_status.state)
 
-        self.t_publish_state = threading.Timer(self.publish_state_timer, self.publishROSstate)
-        self.t_publish_state.start()
+        self.t_publish_status = threading.Timer(self.publish_status_timer, self.publishROSstate)
+        self.t_publish_status.start()
 
     def setRecordingServiceCb(self, req):
         '''
@@ -561,10 +562,10 @@ class RosBagManager:
 
             self.init_record_time = rospy.Time.now()
             self.is_recording = True
-            self.msg_state.path = self.bag_path
-            self.msg_state.compression = self.process_manager.compression_
+            self.msg_status.path = self.bag_path
+            self.msg_status.compression = self.process_manager.compression_
 
-            self.msg_state.bag_name = self.bag_name
+            self.msg_status.bag_name = self.bag_name
             self.info_file.writelines('ros_init_time: [%d,%d]\n'%(self.init_record_time.secs, self.init_record_time.nsecs))
             return True,"Recording initialized"
 
@@ -574,7 +575,7 @@ class RosBagManager:
             end_time = rospy.Time.now()
             # Saves information in log file
             self.info_file.writelines(['ros_end_time: [%d,%d]\n'%(end_time.secs, end_time.nsecs), 'time_recording: %d\n'%(end_time - self.init_record_time).to_sec(),
-            'size: %.4lf\n'%self.msg_state.stored_size, 'buffsize: %d\n'%self.process_manager.buffer_size_, 'chunksize: %d\n'%self.process_manager.chunk_size_,
+            'size: %.4lf\n'%self.msg_status.stored_size, 'buffsize: %d\n'%self.process_manager.buffer_size_, 'chunksize: %d\n'%self.process_manager.chunk_size_,
             'topics: %s\n'%self.process_manager.topics_, 'path: %s\n'%self.bag_path, 'bag_files: %s\n'%self.getBagFiles(self.process_manager.output_path_),
             'compression: %s\n'%self.process_manager.compression_, 'split: %s\n'%self.process_manager.split_])
             if self.process_manager.split_:
@@ -708,6 +709,7 @@ def main():
 
     arg_defaults = {
       'topic_state': 'state',
+      'topic_status': 'status',
       'desired_freq': DEFAULT_FREQ,
       'topics': '',
       'output_path': rospkg.RosPack().get_path('rosbag_manager'),
