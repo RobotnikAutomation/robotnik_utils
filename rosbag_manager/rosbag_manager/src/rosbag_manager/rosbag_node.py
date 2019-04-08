@@ -38,14 +38,17 @@ import rospkg
 import time, threading
 import os
 import os.path
+import glob
 import signal
 import exceptions
+import errno
 import datetime
 import commands
 import re
+
 from robotnik_msgs.msg import State
 from rosbag_manager_msgs.srv import Record, RecordRequest, RecordResponse
-from rosbag_manager_msgs.msg import RosbagManagerState
+from rosbag_manager_msgs.msg import RosbagManagerStatus
 
 
 DEFAULT_FREQ = 10.0
@@ -66,8 +69,12 @@ class RosbagProcessManager():
         self.split_ = params['split']
         self.split_size_ = params['split_size']
         self.compression_ = params['compression']
+        self.regex_ = params['regex']
+
         # output_path should be folder_path, as it is not the file name
-        self.output_path_ = params['output_path']
+        self.output_folder_ = params['output_folder']
+        self.output_filename_ = ''
+        self.output_path_ = self.output_folder_
 
     def initialize(self):
         """
@@ -88,30 +95,39 @@ class RosbagProcessManager():
 
         return 0
 
-    def setOutputPath(self, output):
+    def setOutputPath(self, folder, filename):
         """
             Saves the output path
         """
+        self.output_filename_ = filename
+        self.output_folder_ = folder
+        if not self.output_folder_.endswith('/'):
+            self.output_folder_ += '/'
 
-        self.output_path_ = output
+        self.output_path_ = self.output_folder_ + self.output_filename_
         self.setCommandArguments()
 
     def getOutputPath(self):
         return self.output_path_
+
+    def getOutputFolder(self):
+        return self.output_folder_
 
     def setCommandArguments(self):
         """
             Sets the arguments used for rosbag
         """
         self.args = ()
-        self.args = self.args + ('--buffsize',  str(self.buffer_size_))
-        self.args = self.args + ('--chunksize',  str(self.chunk_size_))
+        self.args = self.args + ('--buffsize', str(self.buffer_size_))
+        self.args = self.args + ('--chunksize', str(self.chunk_size_))
 
         if self.split_:
-            self.args = self.args + ('--split',  )
-            self.args = self.args + ('--size=%d'%self.split_size_,  )
+            self.args = self.args + ('--split', )
+            self.args = self.args + ('--size=%d'%self.split_size_,)
         if self.compression_:
-            self.args = self.args + ('--bz2',  )
+            self.args = self.args + ('--bz2', )
+        if self.regex_:
+            self.args = self.args + ('--regex', )
 
         self.args = self.args + ('-O',  self.output_path_)
 
@@ -124,32 +140,12 @@ class RosbagProcessManager():
         """
             Expands topic names according to what is reported by the ROS Master
         """
-        published_topics = [topic[0] for topic in rospy.get_published_topics()]
 
         # add namespace if topics are not absolute
         qualified_topics = map(lambda topic : topic if topic.startswith('/') else rospy.get_namespace() + topic, self.topics_)
 
-        # expand topics that are regular expresions
-        expanded_topics = []
-        for topic in qualified_topics:
-            r = re.compile(topic)
-            et = filter(r.match, published_topics)
-            if len(et) != 0:
-                expanded_topics += et
-            else:
-                # check if topic is valid (not a regex), but does not match current topics.
-                # then subscribe to it, because can be published after this node is started
-                # and if is not valid, do not subscribe because then we can get some errors
-                if re.match('^[[a-zA-Z]|/\w]?[\w|/]*$', topic):
-                    expanded_topics += [topic]
-
-        # remove duplicates, just in case
-        self.expanded_topics_ = []
-        for topic in expanded_topics:
-            if topic in self.expanded_topics_:
-                rospy.logwarn('RosbagProcessManager: topic %s is twice in your config file, recording just one instance' % topic)
-            else:
-                self.expanded_topics_.append(topic)
+        # previously regex where expanded here, but rosbag record is able to handle them, so let him to do it
+        self.expanded_topics_ = qualified_topics
 
     def runCommand(self):
         """
@@ -194,7 +190,7 @@ class RosBagManager:
 
     def __init__(self, args):
 
-        self.node_name = rospy.get_name().replace('/','')
+        self.node_name = rospy.get_name()#.replace('/','')
         self.desired_freq = args['desired_freq']
         # Checks value of freq
         if self.desired_freq <= 0.0 or self.desired_freq > MAX_FREQ:
@@ -218,9 +214,9 @@ class RosBagManager:
         # Variable used to control the loop frequency
         self.time_sleep = 1.0 / self.desired_freq
         # State msg to publish
-        self.msg_state = RosbagManagerState()
+        self.msg_status = RosbagManagerStatus()
         # Timer to publish state
-        self.publish_state_timer = 1
+        self.publish_status_timer = 1
         # Flag active when recording
         self.is_recording = False
         # Saves the moment of the initialization
@@ -230,7 +226,7 @@ class RosBagManager:
         # Saves the name of the bag path
         self.bag_path = ''
 
-        self.t_publish_state = threading.Timer(self.publish_state_timer, self.publishROSstate)
+        self.t_publish_status = threading.Timer(self.publish_status_timer, self.publishROSstate)
 
 
     def setup(self):
@@ -253,7 +249,8 @@ class RosBagManager:
         if self.ros_initialized:
             return 0
 
-        self._state_publisher = rospy.Publisher('~state', RosbagManagerState, queue_size=10)
+        self._status_publisher = rospy.Publisher('~status', RosbagManagerStatus, queue_size=1)
+        self._state_publisher = rospy.Publisher('~state', State, queue_size=1)
 
         # Services
         self._set_recording_service = rospy.Service('~set_recording', Record, self.setRecordingServiceCb)
@@ -279,10 +276,7 @@ class RosBagManager:
             self.process_manager.stopCommand()
             self.is_recording = False
 
-        # Cancels current timers
-        self.t_publish_state.cancel()
-
-        self._state_publisher.unregister()
+        self.rosShutdown()
 
         self.initialized = False
 
@@ -298,6 +292,8 @@ class RosBagManager:
             return -1
 
         # Performs ROS topics & services shutdown
+        self.t_publish_status.cancel()
+        self._status_publisher.unregister()
         self._state_publisher.unregister()
 
         self.ros_initialized = False
@@ -508,22 +504,21 @@ class RosBagManager:
         '''
             Publish the State of the component at the desired frequency
         '''
-        self.msg_state.header.stamp = rospy.Time.now()
-        self.msg_state.state.state = self.state
-        self.msg_state.state.state_description = self.stateToString(self.state)
-        self.msg_state.state.desired_freq = self.desired_freq
-        self.msg_state.state.real_freq = self.real_freq
-        self.msg_state.recording = self.is_recording
+        self.msg_status.header.stamp = rospy.Time.now()
+        self.msg_status.state.state = self.state
+        self.msg_status.state.state_description = self.stateToString(self.state)
+        self.msg_status.state.desired_freq = self.desired_freq
+        self.msg_status.state.real_freq = self.real_freq
+        self.msg_status.recording = self.is_recording
         if self.is_recording:
-            self.msg_state.time_recording = (rospy.Time.now() - self.init_record_time).to_sec()
-            self.msg_state.stored_size = self.getBagSize(self.msg_state.path+self.bag_name) /1000000.0
+            self.msg_status.time_recording = (rospy.Time.now() - self.init_record_time).to_sec()
+            self.msg_status.stored_size = self.getBagSize(self.process_manager.output_path_) / (1024*1024) # convert to MiB
 
+        self._status_publisher.publish(self.msg_status)
+        self._state_publisher.publish(self.msg_status.state)
 
-
-        self._state_publisher.publish(self.msg_state)
-
-        self.t_publish_state = threading.Timer(self.publish_state_timer, self.publishROSstate)
-        self.t_publish_state.start()
+        self.t_publish_status = threading.Timer(self.publish_status_timer, self.publishROSstate)
+        self.t_publish_status.start()
 
     def setRecordingServiceCb(self, req):
         '''
@@ -531,18 +526,17 @@ class RosBagManager:
         @param req: Required action
         @type req: inelfe_msgs/Record.srv
         '''
-        rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %d, path = %s'%(req.action, req.path))
+        rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %d, name = %s, path = %s'%(req.action, req.name, req.path))
 
         # Initializes rosbag process
         if not self.is_recording and req.action == RecordRequest.START:
             folder_path = req.path
             if folder_path == '':
-                folder_path = self.process_manager.getOutputPath()
+                folder_path = self.process_manager.getOutputFolder()
             if not folder_path.endswith('/'):
                 folder_path = folder_path + '/'
 
             folder_path = os.path.expanduser(os.path.expandvars(folder_path))
-
             if self.createDirectoryTree(folder_path)!= 0:
                 rospy.logerr('RosbagManager:setRecorgingServiceCb: Error creating directory tree at %s'%folder_path)
                 return False, "Error creating directory tree at %s"%(folder_path)
@@ -551,9 +545,10 @@ class RosBagManager:
                 self.bag_name = self.createBagName()
             #self.bag_name = "data" # Generic bag name
             self.bag_path = folder_path
-            self.process_manager.setOutputPath(folder_path+self.bag_name)
+            self.process_manager.setOutputPath(folder_path, self.bag_name)
             # Opens the file to save the info of the bag
-            self.createInfoFile(folder_path+self.bag_name+'_info.yaml')
+            self.info_filename = folder_path+self.bag_name+'_info.yaml'
+            self.createInfoFile(self.info_filename)
 
             if self.process_manager.runCommand() != 0:
                 rospy.logerr('RosbagManager:setRecorgingServiceCb: Error executing the command')
@@ -561,31 +556,34 @@ class RosBagManager:
 
             self.init_record_time = rospy.Time.now()
             self.is_recording = True
-            self.msg_state.path = self.bag_path
-            self.msg_state.compression = self.process_manager.compression_
+            self.msg_status.path = self.bag_path
+            self.msg_status.compression = self.process_manager.compression_
+            self.msg_status.regex = self.process_manager.regex_
 
-            self.msg_state.bag_name = self.bag_name
+            self.msg_status.bag_name = self.bag_name
             self.info_file.writelines('ros_init_time: [%d,%d]\n'%(self.init_record_time.secs, self.init_record_time.nsecs))
             return True,"Recording initialized"
 
-        elif self.is_recording and req.action == RecordRequest.STOP:
+        elif self.is_recording and req.action in [RecordRequest.STOP, RecordRequest.DISCARD]:
             self.process_manager.stopCommand()
             time.sleep(1)
             end_time = rospy.Time.now()
             # Saves information in log file
             self.info_file.writelines(['ros_end_time: [%d,%d]\n'%(end_time.secs, end_time.nsecs), 'time_recording: %d\n'%(end_time - self.init_record_time).to_sec(),
-            'size: %.4lf\n'%self.msg_state.stored_size, 'buffsize: %d\n'%self.process_manager.buffer_size_, 'chunksize: %d\n'%self.process_manager.chunk_size_,
+            'size: %.4lf\n'%self.msg_status.stored_size, 'buffsize: %d\n'%self.process_manager.buffer_size_, 'chunksize: %d\n'%self.process_manager.chunk_size_,
             'topics: %s\n'%self.process_manager.topics_, 'path: %s\n'%self.bag_path, 'bag_files: %s\n'%self.getBagFiles(self.process_manager.output_path_),
-            'compression: %s\n'%self.process_manager.compression_, 'split: %s\n'%self.process_manager.split_])
+            'compression: %s\n'%self.process_manager.compression_, 'regex: %s\n'%self.process_manager.regex_, 'split: %s\n'%self.process_manager.split_])
             if self.process_manager.split_:
                 self.info_file.write('split_size: %d\n'%self.process_manager.split_size_)
             self.closeInfoFile()
+            if req.action == RecordRequest.DISCARD:
+                self.deleteFiles()
             self.is_recording = False
             return True, "Stop recording"
 
         elif self.is_recording and req.action == RecordRequest.START:
             return True, "Already recording"
-        elif not self.is_recording and req.action == RecordRequest.STOP:
+        elif not self.is_recording and req.action in [RecordRequest.STOP, RecordRequest.DISCARD]:
             return True, "Nothing to do"
 
         return False,"Should never reach here"
@@ -600,12 +598,22 @@ class RosBagManager:
             os.makedirs(path)
             return 0
         except exceptions.OSError, e:
-            if e.errno != 17:
+            if e.errno != errno.EEXIST:
                 rospy.logerr('RosBagManager:createDirectoryTree: %s'%(e))
                 return -1
             else:
                 return 0
 
+    def deleteFiles(self):
+        # this may fail if bag is still "active" when called (maybe when it is too big)"
+        try:
+            os.remove(self.info_filename)
+            for bag_filename in self.getBagFilepaths(self.process_manager.output_path_):
+                os.remove(bag_filename)
+            return 0
+        except exceptions.OSError, e:
+            rospy.logerr('RosBagManager:deleteFiles: %s'%(e))
+            return -1
 
     def createBagName(self):
         """
@@ -616,43 +624,23 @@ class RosBagManager:
         d2_s = d1_s.replace(':', '_')
         d3_s = d2_s.split('.')[0]
 
+        rospy.logwarn('createbagname %s'%d3_s)
         return d3_s
 
     def getBagSize(self, bag_file):
         """
-            Returns the size of the current size in bytes
+            Returns the size of the current size in MB
             Returns -1 if error
         """
-        #rospy.loginfo('RosBagManager::getBagSize: ls -l %s*.bag*'%bag_file)
-        status, output = commands.getstatusoutput('ls -l %s*.bag*'%bag_file)
-        s = 0
-
-        if status == 0:
-            #print output
-            # -rw-rw-r-- 1 rnavarro rnavarro 25642 Jun 18 23:06 2015-06-18_23_04_10.bag
-            # ['-rw-rw-r--', '1', 'rnavarro', 'rnavarro', '25642',
-            # 'Jun', '18', '23:06', '2015-06-18_23_04_10.bag']
-            lines = output.split('\n')
-            for l in lines:
-                try:
-                    if len(l) > 0:
-                        # To correct some errors in format
-                        while l.find('  ') >= 0:
-                            l= l.replace('  ', ' ')
-                        s = s + int(l.split(' ')[4])
-                        #print 'adding line %s, adding %d'%(l, int(l.split(' ')[4]))
-                except ValueError,e:
-                    rospy.logerr('RosBagManager::getBagSize: error processing line %s: %s'%(l,e))
-            return s
-        else:
-            return -1
+        files = self.getBagFilepaths(bag_file)
+        return sum(map(os.path.getsize, files))
 
     def createInfoFile(self, path):
         """
             Creates the file to save the rosbag info
         """
 
-        self.info_file = file(path, 'w')
+        self.info_file = open(path, 'w')
 
         return 0
 
@@ -666,38 +654,22 @@ class RosBagManager:
         else:
             return -1
 
+    def getBagFilepaths(self, bag_file):
+        """
+            Returns a list with all the bag files created, with full path
+            Returns -1 if error
+        """
+        return glob.glob(bag_file + '*.bag*')
+
     def getBagFiles(self, bag_file):
         """
             Returns a list with all the bag files created
             Returns -1 if error
         """
-        #rospy.loginfo('RosBagManager::getBagSize: ls -l %s*.bag*'%bag_file)
-        status, output = commands.getstatusoutput('ls -l %s*.bag*'%bag_file)
-        ret = []
-
-        if status == 0:
-            # -rw-rw-r-- 1 rnavarro rnavarro 25642 Jun 18 23:06 2015-06-18_23_04_10.bag
-            # ['-rw-rw-r--', '1', 'rnavarro', 'rnavarro', '25642',
-            # 'Jun', '18', '23:06', '2015-06-18_23_04_10.bag']
-            lines = output.split('\n')
-            for l in lines:
-                if len(l) > 0:
-                    # To correct some errors in format
-                    while l.find('  ') >= 0:
-                        l= l.replace('  ', ' ')
-                # Gets the file name with the full path
-                f = l.split(' ')[8]
-                # Extracts the name removing the path
-                name = f.split('/').pop()
-                # removes the extension .active in case the file is being close at that moment
-                if name.endswith('.active'):
-                    name = name.rstrip('.active')
-
-                ret.append(name)
-            return ret
-        else:
-            return []
-
+        actual_files = map(os.path.basename, glob.glob(bag_file + '*.bag*'))
+        noactive_files = map(lambda f : f[:-len('.active')] if f.endswith('.active') else f, actual_files)
+        unique_files = list(set(noactive_files))
+        return unique_files
 
 def main():
 
@@ -708,14 +680,16 @@ def main():
 
     arg_defaults = {
       'topic_state': 'state',
+      'topic_status': 'status',
       'desired_freq': DEFAULT_FREQ,
       'topics': '',
-      'output_path': rospkg.RosPack().get_path('rosbag_manager'),
+      'output_folder': rospkg.RosPack().get_path('rosbag_manager'),
       'buffer_size': 256,
       'chunk_size': 768,
       'split': False,   # Split the rosbag?
       'split_size': 1024, # size of splitted bags
       'compression': True, # Compress the bag file?
+      'regex': True, # use regular expressions to subscribe to topics
     }
 
     args = {}

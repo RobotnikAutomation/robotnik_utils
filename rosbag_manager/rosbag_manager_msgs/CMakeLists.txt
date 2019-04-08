@@ -7,9 +7,9 @@ find_package(catkin REQUIRED std_msgs robotnik_msgs message_generation)
 
 ## Generate messages in the 'msg' folder
 add_message_files(
-   FILES
-  RosbagManagerState.msg
- )
+    FILES
+    RosbagManagerStatus.msg
+)
 
 ## Generate services in the 'srv' folder
 add_service_files(
@@ -36,5 +36,4 @@ generate_messages(
 catkin_package(CATKIN_DEPENDS
   std_msgs
   robotnik_msgs
-
 )

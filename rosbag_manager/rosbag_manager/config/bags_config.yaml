@@ -1,4 +1,4 @@
-output_path: /home/rnavarro/test_rosbags
+output_folder: /home/rnavarro/test_rosbags
 buffer_size: 2048
 chunk_size: 768
 topics:
@@ -9,7 +9,8 @@ topics:
  # to /vulcano/robotnik_base_hw/status
  - robotnik_base_hw/status
  # example to subscribe to a regular expresion
- - /vulcano/robotnik_base_hw/battery/.*
+ - /vulcano/robotnik_base_hw/battery/(.*)
 split: true
 split_size: 1024
 compressed: true
+regex: true

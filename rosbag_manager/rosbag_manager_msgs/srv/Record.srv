@@ -1,7 +1,10 @@
-# 0: stop recording, 1: start recording
-int8 STOP=0
-int8 START=1
-int8 action
+# START: start recording
+# STOP: stop recording
+# DISCARD: stop and discard recording
+string STOP=stop
+string START=start
+string DISCARD=discard
+string action
 
 # Name of the bag file. If empty string, bag file will be named with date and time
 string name
