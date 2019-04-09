@@ -16,3 +16,13 @@ catkin_package()
 
 catkin_install_python(PROGRAMS src/rosbag_manager/rosbag_node.py DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
+install( DIRECTORY launch/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+  FILES_MATCHING PATTERN "*.launch"
+)
+
+install(DIRECTORY config/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
+  FILES_MATCHING PATTERN "*.yaml"
+)
+
