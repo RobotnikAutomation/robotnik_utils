@@ -526,7 +526,7 @@ class RosBagManager:
         @param req: Required action
         @type req: inelfe_msgs/Record.srv
         '''
-        rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %d, name = %s, path = %s'%(req.action, req.name, req.path))
+        rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %s, name = %s, path = %s'%(req.action, req.name, req.path))
 
         # Initializes rosbag process
         if not self.is_recording and req.action == RecordRequest.START:
