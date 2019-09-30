@@ -338,7 +338,7 @@ class PingTimeMonitor:
                             self.ping_status.t_min = float(t_stats[0])
                             self.ping_status.t_avg = float(t_stats[1])
                             self.ping_status.t_max = float(t_stats[2])
-                            self.ping_status.t_mdev = float(t_stats[3].strip(' ms'))
+                            self.ping_status.t_mdev = float(t_stats[3].split(' ms', 1)[0])
                         
                     else:
                         ret = l.rfind('packet loss')    
