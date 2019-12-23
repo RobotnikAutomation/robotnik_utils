@@ -40,13 +40,14 @@ Starts/stops the rosbag on demand.
 
 *service params*
 
-* action (int): RecordRequest.START (1), RecordRequest.STOP (0) 
+* action (string): RecordRequest.START (start), RecordRequest.STOP (stop), RecordRequest.DISCARD (discard)  
 * name (string): filename of the rosbag 
 * path (string): path folder to save the rosbag. If empty it'll take the defined in the ROS params.
 
 Example:
 ```
- rosservice call /rosbag_manager/set_recording "action: 0
+ rosservice call /robot/rosbag_manager/set_recording "action: 'start'
+name: ''
 path: ''"
 ```
 
