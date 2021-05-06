@@ -46,6 +46,8 @@ import datetime
 import commands
 import re
 
+import psutil
+
 from robotnik_msgs.msg import State
 from rosbag_manager_msgs.srv import Record, RecordRequest, RecordResponse
 from rosbag_manager_msgs.msg import RosbagManagerStatus
@@ -70,6 +72,8 @@ class RosbagProcessManager():
         self.split_size_ = params['split_size']
         self.compression_ = params['compression']
         self.regex_ = params['regex']
+        self.autostart_ = params['autostart']
+        self.max_hdd_percent_ = params['max_hdd_percent']
 
         # output_path should be folder_path, as it is not the file name
         self.output_folder_ = params['output_folder']
@@ -151,7 +155,10 @@ class RosbagProcessManager():
         """
             Executes the command
         """
-        rospy.loginfo('RosbagProcessManager: runCommand:')
+        #arsgtxt=''
+        #for i in self.args:
+        #    arsgtxt = arsgtxt + '|' + i
+        #rospy.loginfo('RosbagProcessManager: runCommand: %s'%(self.command + ' '+ arsgtxt))
         self.rosbag_record_waitpid = os.fork()
 
         if self.rosbag_record_waitpid:
@@ -224,7 +231,12 @@ class RosBagManager:
         # Saves the name of the bag file
         self.bag_name = ''
         # Saves the name of the bag path
-        self.bag_path = ''
+        self.bag_path = args['output_folder']
+        # if autostart == true start rosbat automatically
+        self.autostart = args['autostart']
+        # if % hdd used > max_hdd_percent stop rosbag 
+        # if max_hdd_percent = 0 no check
+        self.max_hdd_percent = args['max_hdd_percent']
 
         self.t_publish_status = threading.Timer(self.publish_status_timer, self.publishROSstate)
 
@@ -353,7 +365,7 @@ class RosBagManager:
 
             elif self.state == State.SHUTDOWN_STATE:
                 self.shutdownState()
-
+                
             self.allState()
 
             t2 = time.time()
@@ -394,12 +406,31 @@ class RosBagManager:
         '''
             Actions performed in init state
         '''
-
         if not self.initialized:
             self.setup()
 
         else:
             self.switchToState(State.STANDBY_STATE)
+
+        if (self.autostart):
+            hdd = psutil.disk_usage('/')
+            if self.max_hdd_percent>0:
+                rospy.loginfo('RosbagManager: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd.percent,self.max_hdd_percent))
+                
+                if hdd.percent>self.max_hdd_percent:
+                    rospy.logerr('RosbagManager: hdd used:%d > max_hdd_percent defined:%s'%(hdd.percent,self.max_hdd_percent))
+                    self.switchToState(State.SHUTDOWN_STATE)
+                    return
+            else:
+                rospy.loginfo('RosbagManager: hdd used:%d this node will store rosbag with no limits'%(hdd.percent))
+                
+            req=RecordRequest()
+            req.action='start'
+            req.name='rosbag_%s'%self.createBagName();
+            print (self.bag_path)
+            req.path=self.bag_path+'/autorosbag_%s'%self.createBagName();
+            self.setRecordingServiceCb(req)
+            self.switchToState(State.READY_STATE)
 
 
         return
@@ -422,6 +453,11 @@ class RosBagManager:
         if not self.is_recording:
             self.switchToState(State.STANDBY_STATE)
 
+        if self.max_hdd_percent>0:
+            hdd = psutil.disk_usage('/')
+            if hdd.percent>self.max_hdd_percent:
+                rospy.logerr('RosbagManager: hdd used:%d > max_hdd_percent defined:%s'%(hdd.percent,self.max_hdd_percent))
+                self.switchToState(State.SHUTDOWN_STATE)
         return
 
 
@@ -429,6 +465,17 @@ class RosBagManager:
         '''
             Actions performed in shutdown state
         '''
+
+        if (self.autostart):
+            req=RecordRequest()
+            req.action='stop'
+            #req.name='rosbag_%s'%self.createBagName();
+            #req.path='/tmp/autorosbag_%s'%self.createBagName();
+            self.setRecordingServiceCb(req)
+            self.switchToState(State.EMERGENCY_STATE)
+            self.running = False
+            return
+
         if self.shutdown() == 0:
             self.switchToState(State.INIT_STATE)
 
@@ -690,6 +737,8 @@ def main():
       'split_size': 1024, # size of splitted bags
       'compression': True, # Compress the bag file?
       'regex': True, # use regular expressions to subscribe to topics
+      'autostart': False,
+      'max_hdd_percent': 80, # If hdd % used > max_hdd_percent stop rosbag, if 0 no check
     }
 
     args = {}
