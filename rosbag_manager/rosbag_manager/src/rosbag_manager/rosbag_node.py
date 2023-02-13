@@ -40,10 +40,8 @@ import os
 import os.path
 import glob
 import signal
-import exceptions
 import errno
 import datetime
-import commands
 import re
 
 import psutil
@@ -644,7 +642,7 @@ class RosBagManager:
         try:
             os.makedirs(path)
             return 0
-        except exceptions.OSError, e:
+        except exceptions.OSError as e:
             if e.errno != errno.EEXIST:
                 rospy.logerr('RosBagManager:createDirectoryTree: %s'%(e))
                 return -1
@@ -658,7 +656,7 @@ class RosBagManager:
             for bag_filename in self.getBagFilepaths(self.process_manager.output_path_):
                 os.remove(bag_filename)
             return 0
-        except exceptions.OSError, e:
+        except exceptions.OSError as e:
             rospy.logerr('RosBagManager:deleteFiles: %s'%(e))
             return -1
 
@@ -752,7 +750,7 @@ def main():
                 rospy.set_param('~%s'%(name), arg_defaults[name])
 
             #print name
-        except rospy.ROSException, e:
+        except rospy.ROSException as e:
             rospy.logerr('%s: %s'%(e, _name))
 
 
