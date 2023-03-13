@@ -1,4 +1,4 @@
-output_folder: /home/rnavarro/test_rosbags
+output_folder: /home/ndiaz/test_rosbags
 buffer_size: 2048
 chunk_size: 768
 topics:
