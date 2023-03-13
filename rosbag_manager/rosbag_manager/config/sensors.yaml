@@ -2,14 +2,10 @@ output_folder: /home/ndiaz/test_rosbags
 buffer_size: 2048
 chunk_size: 768
 topics:
- - /vulcano/robotnik_base_hw/emergency_stop
- - /vulcano/robotnik_base_hw/io
- - /vulcano/robotnik_base_hw/state
- # example to subscribe to a relative topic: if node is run inside ns=vulcano, it will subscribe
- # to /vulcano/robotnik_base_hw/status
- - robotnik_base_hw/status
- # example to subscribe to a regular expresion
- - /vulcano/robotnik_base_hw/battery/(.*)
+ - /robot/front_laser/scan
+ - /robot/move_base/local_costmap/obstacle_laser_layer/parameter_descriptions
+ - /robot/move_base/local_costmap/obstacle_laser_layer/parameter_updates
+ - /robot/rear_laser/scan
 split: true
 split_size: 1024
 compressed: true
