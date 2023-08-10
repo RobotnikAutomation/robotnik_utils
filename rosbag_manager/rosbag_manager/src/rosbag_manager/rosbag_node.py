@@ -44,6 +44,11 @@ import errno
 import datetime
 import re
 
+try:
+    import exceptions
+except ImportError:
+    import builtins as exceptions
+
 import psutil
 
 from robotnik_msgs.msg import State
