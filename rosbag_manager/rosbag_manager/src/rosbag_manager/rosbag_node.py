@@ -561,7 +561,7 @@ class RosBagManager:
         self.msg_status.state.real_freq = self.real_freq
         self.msg_status.recording = self.is_recording
         if self.is_recording:
-            self.msg_status.time_recording = (rospy.Time.now() - self.init_record_time).to_sec()
+            self.msg_status.time_recording = int((rospy.Time.now() - self.init_record_time).to_sec())
             self.msg_status.stored_size = self.getBagSize(self.process_manager.output_path_) / (1024*1024) # convert to MiB
 
         self._status_publisher.publish(self.msg_status)
