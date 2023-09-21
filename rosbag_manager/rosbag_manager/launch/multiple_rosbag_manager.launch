@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="config_file" default="bags_config"/>
+  <arg name="config_folder" default="$(find rosbag_manager)/config" />
+
+  <group ns="robot">
+
+    <group ns="rosbag_manager">
+
+      <node pkg="rosbag_manager" type="rosbag_node.py" name="sensors" output="screen">
+        <rosparam file="$(arg config_folder)/sensors.yaml" command="load" subst_value="true"/>
+      </node>
+
+      <node pkg="rosbag_manager" type="rosbag_node.py" name="odometry" output="screen">
+        <rosparam file="$(arg config_folder)/odometry.yaml" command="load" subst_value="true"/>
+      </node>
+
+    </group>
+
+  </group>
+
+</launch>

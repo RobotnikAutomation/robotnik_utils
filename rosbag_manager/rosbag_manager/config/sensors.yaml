@@ -1,0 +1,12 @@
+output_folder: /home/ndiaz/test_rosbags
+buffer_size: 2048
+chunk_size: 768
+topics:
+ - /robot/front_laser/scan
+ - /robot/rear_laser/scan
+ - /robot/front_rgbd_camera/rgb/image_raw
+
+split: true
+split_size: 1024
+compressed: true
+regex: true
