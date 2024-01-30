@@ -34,7 +34,7 @@
 
 import rospy 
 
-import time, threading, commands
+import time, threading, subprocess
 
 from robotnik_msgs.msg import State
 from ping_time_monitor.msg import PingStatus
@@ -215,11 +215,11 @@ class PingTimeMonitor:
             t_sleep = self.time_sleep - tdiff
             
             if t_sleep > 0.0:
-    			try:
-    				rospy.sleep(t_sleep)
-    			except rospy.exceptions.ROSInterruptException:
-    				rospy.loginfo('%s::controlLoop: ROS interrupt exception'%self.node_name)
-    				self._running = False
+                try:
+                    rospy.sleep(t_sleep)
+                except rospy.exceptions.ROSInterruptException:
+                    rospy.loginfo('%s::controlLoop: ROS interrupt exception'%self.node_name)
+                    self._running = False
             
             t3= time.time()
             self.real_freq = 1.0/(t3 - t1)
@@ -299,10 +299,10 @@ class PingTimeMonitor:
             Actions performed in all states
         '''
         try:
-            status, output = commands.getstatusoutput("ping -c %d -W %f %s"%(self.count_, self.timeout_, self.host_))
-        except Exception,e:
+            status, output = subprocess.getstatusoutput("ping -c %d -W %f %s"%(self.count_, self.timeout_, self.host_))
+        except Exception as e:
             rospy.logerr('%s::readyState: error calling ping: %s',self.node_name, e)
-            self.switchToState(State.FAILURE_STATE);
+            self.switchToState(State.FAILURE_STATE)
             return
             
         lines = output.splitlines()
@@ -354,15 +354,15 @@ class PingTimeMonitor:
                 #print 'Time average = %.2lf'%total_time
                 self.ping_status.time = total_time
                 self.ping_status.header.stamp = rospy.Time.now()
-                self.switchToState(State.READY_STATE);
+                self.switchToState(State.READY_STATE)
             else:
                 #print 'Error on ping response format'
                 self.ping_status.time = -1
                 self.ping_status.header.stamp = rospy.Time.now()
-                self.switchToState(State.EMERGENCY_STATE);
+                self.switchToState(State.EMERGENCY_STATE)
         else:
-			self.switchToState(State.EMERGENCY_STATE);
-			
+            self.switchToState(State.EMERGENCY_STATE)
+            
         self.rosPublish()
         
         return
@@ -433,7 +433,7 @@ def main():
             else:
                 args[name] = arg_defaults[name]
             #print name
-        except rospy.ROSException, e:
+        except rospy.ROSException as e:
             rospy.logerror('%s: %s'%(e, _name))
             
     
