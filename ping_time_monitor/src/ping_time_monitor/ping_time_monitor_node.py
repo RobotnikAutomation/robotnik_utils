@@ -33,11 +33,22 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import rospy 
+import os
 
-import time, threading, subprocess
+import time, threading
 
 from robotnik_msgs.msg import State
 from ping_time_monitor.msg import PingStatus
+
+ros_distribution = os.environ.get('ROS_DISTRO', 'unknown')
+
+if ros_distribution == 'melodic':
+    # Import for ROS Melodic
+    import commands
+elif ros_distribution == 'noetic':
+    # Import for ROS Noetic
+    import subprocess
+
 
 DEFAULT_FREQ = 1.0
 MIN_TIMEOUT = 0.1
@@ -299,7 +310,10 @@ class PingTimeMonitor:
             Actions performed in all states
         '''
         try:
-            status, output = subprocess.getstatusoutput("ping -c %d -W %f %s"%(self.count_, self.timeout_, self.host_))
+            if ros_distribution == 'melodic':
+                status, output = commands.getstatusoutput("ping -c %d -W %f %s"%(self.count_, self.timeout_, self.host_))
+            elif ros_distribution == 'noetic':
+                status, output = subprocess.getstatusoutput("ping -c %d -W %f %s"%(self.count_, self.timeout_, self.host_))
         except Exception as e:
             rospy.logerr('%s::readyState: error calling ping: %s',self.node_name, e)
             self.switchToState(State.FAILURE_STATE)
