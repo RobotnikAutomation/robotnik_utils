@@ -14,5 +14,5 @@ split: true
 split_size: 1024
 compressed: true
 regex: true
-max_hdd_percent_recording: 90
-max_hdd_percent: 85
+max_disk_usage_recording: 90
+max_disk_usage: 85

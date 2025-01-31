@@ -76,7 +76,7 @@ class RosbagProcessManager():
         self.compression_ = params['compression']
         self.regex_ = params['regex']
         self.autostart_ = params['autostart']
-        self.max_hdd_percent_ = params['max_hdd_percent']
+        self.max_disk_usage_ = params['max_disk_usage']
 
         # output_path should be folder_path, as it is not the file name
         self.output_folder_ = params['output_folder']
@@ -236,12 +236,12 @@ class RosBagManager:
         self.bag_path = args['output_folder']
         # if autostart == true start rosbat automatically
         self.autostart = args['autostart']
-        # if % hdd used > max_hdd_percent stop rosbag 
-        # if max_hdd_percent = 0 no check
-        self.max_hdd_percent_recording = args['max_hdd_percent_recording']
-        # if max_hdd_percent = 0 no check
-        # if % hdd used > max_hdd_percent don't start rosbag
-        self.max_hdd_percent = args['max_hdd_percent']
+        # if % hdd used > max_disk_usage stop rosbag 
+        # if max_disk_usage = 0 no check
+        self.max_disk_usage_recording = args['max_disk_usage_recording']
+        # if max_disk_usage = 0 no check
+        # if % hdd used > max_disk_usage don't start rosbag
+        self.max_disk_usage = args['max_disk_usage']
 
         self.t_publish_status = threading.Timer(self.publish_status_timer, self.publishROSstate)
 
@@ -421,11 +421,11 @@ class RosBagManager:
             self.disk_capacity, self.disk_usage, self.free_disk_space = shutil.disk_usage(self.bag_path)
             hdd_percentage = self.disk_usage * 100 / self.disk_capacity
             
-            if self.max_hdd_percent_recording>0:
-                rospy.loginfo('RosbagManager::initState:: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_hdd_percent_recording))
+            if self.max_disk_usage_recording>0:
+                rospy.loginfo('RosbagManager::initState:: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_disk_usage_recording))
                 
-                if hdd_percentage >= self.max_hdd_percent_recording:
-                    rospy.logerr('RosbagManager::initState:: hdd used:%d > max_hdd_percent defined:%s'%(hdd_percentage,self.max_hdd_percent_recording))
+                if hdd_percentage >= self.max_disk_usage_recording:
+                    rospy.logerr('RosbagManager::initState:: hdd used:%d > max_disk_usage defined:%s'%(hdd_percentage,self.max_disk_usage_recording))
                     self.switchToState(State.SHUTDOWN_STATE)
                     return
             else:
@@ -460,13 +460,13 @@ class RosBagManager:
         if not self.is_recording:
             self.switchToState(State.STANDBY_STATE)
 
-        if self.max_hdd_percent_recording>0:
+        if self.max_disk_usage_recording>0:
             self.disk_capacity, self.disk_usage, self.free_disk_space = shutil.disk_usage(self.bag_path)
             hdd_percentage = self.disk_usage * 100 / self.disk_capacity
-            rospy.loginfo('RosbagManager::readyState:: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_hdd_percent_recording))
+            rospy.loginfo('RosbagManager::readyState:: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_disk_usage_recording))
             
-            if hdd_percentage >= self.max_hdd_percent_recording:
-                rospy.logerr('RosbagManager::readyState:: hdd used:%d > max_hdd_percent defined:%s'%(hdd_percentage,self.max_hdd_percent_recording))
+            if hdd_percentage >= self.max_disk_usage_recording:
+                rospy.logerr('RosbagManager::readyState:: hdd used:%d > max_disk_usage defined:%s'%(hdd_percentage,self.max_disk_usage_recording))
                 req=RecordRequest()
                 req.action='stop'
                 self.setRecordingServiceCb(req)
@@ -588,14 +588,14 @@ class RosBagManager:
         '''
         rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %s, name = %s, path = %s'%(req.action, req.name, req.path))
 
-        if self.max_hdd_percent>0:
+        if self.max_disk_usage>0:
             self.disk_capacity, self.disk_usage, self.free_disk_space = shutil.disk_usage(self.bag_path)
             hdd_percentage = self.disk_usage * 100 / self.disk_capacity
             # print log of hdd_percentage
-            rospy.loginfo('RosbagManager: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_hdd_percent))
+            rospy.loginfo('RosbagManager: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_disk_usage))
             
-            if hdd_percentage >= self.max_hdd_percent:
-                rospy.logerr('RosbagManager: hdd used:%d > max_hdd_percent defined:%s'%(hdd_percentage,self.max_hdd_percent))
+            if hdd_percentage >= self.max_disk_usage:
+                rospy.logerr('RosbagManager: hdd used:%d > max_disk_usage defined:%s'%(hdd_percentage,self.max_disk_usage))
                 return False, 'Insufficient disk space to start recording rosbag' 
 
         # Initializes rosbag process
@@ -761,8 +761,8 @@ def main():
       'compression': True, # Compress the bag file?
       'regex': True, # use regular expressions to subscribe to topics
       'autostart': False,
-      'max_hdd_percent_recording': 90, # If hdd % used > max_hdd_percent stop rosbag, if 0 no check
-      'max_hdd_percent': 25 # If hdd % used > max_hdd_percent stop rosbag, if 0 no check
+      'max_disk_usage_recording': 90, # If hdd % used > max_disk_usage stop rosbag, if 0 no check
+      'max_disk_usage': 25 # If hdd % used > max_disk_usage stop rosbag, if 0 no check
     }
 
     args = {}
