@@ -418,8 +418,8 @@ class RosBagManager:
             self.switchToState(State.STANDBY_STATE)
 
         if (self.autostart):
-            self.disk_capacity, self.disk_usage, self.free_disk_space = shutil.disk_usage(self.bag_path)
-            hdd_percentage = self.disk_usage * 100 / self.disk_capacity
+            total, used, _ = shutil.disk_usage(self.bag_path)
+            hdd_percentage = used * 100 / total
             
             if self.max_disk_usage_recording>0:
                 rospy.loginfo('RosbagManager::initState:: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_disk_usage_recording))
@@ -429,13 +429,13 @@ class RosBagManager:
                     self.switchToState(State.SHUTDOWN_STATE)
                     return
             else:
-                rospy.loginfo('RosbagManager: hdd used:%d this node will store rosbag with no limits'%(self.disk_usage * 100 / self.disk_capacity))
+                rospy.loginfo('RosbagManager: hdd used:%d this node will store rosbag with no limits'%(used * 100 / total))
                 
             req=RecordRequest()
             req.action='start'
-            req.name='rosbag_%s'%self.createBagName();
+            req.name='rosbag_%s'%self.createBagName()
             print (self.bag_path)
-            req.path=self.bag_path+'/autorosbag_%s'%self.createBagName();
+            req.path=self.bag_path+'/autorosbag_%s'%self.createBagName()
             self.setRecordingServiceCb(req)
             self.switchToState(State.READY_STATE)
 
@@ -461,12 +461,12 @@ class RosBagManager:
             self.switchToState(State.STANDBY_STATE)
 
         if self.max_disk_usage_recording>0:
-            self.disk_capacity, self.disk_usage, self.free_disk_space = shutil.disk_usage(self.bag_path)
-            hdd_percentage = self.disk_usage * 100 / self.disk_capacity
-            rospy.loginfo('RosbagManager::readyState:: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_disk_usage_recording))
+            total, used, _ = shutil.disk_usage(self.bag_path)
+            hdd_percentage = used * 100 / total
+            rospy.logdebug_throttle(1, 'RosbagManager::readyState:: hdd used:%.2f percent, this node will store rosbags while the hdd used < %.2f percent '%(hdd_percentage,self.max_disk_usage_recording))
             
             if hdd_percentage >= self.max_disk_usage_recording:
-                rospy.logerr('RosbagManager::readyState:: hdd used:%d > max_disk_usage defined:%s'%(hdd_percentage,self.max_disk_usage_recording))
+                rospy.logerr('RosbagManager::readyState:: hdd used:%.2f > max_disk_usage defined:%.2f'%(hdd_percentage,self.max_disk_usage_recording))
                 req=RecordRequest()
                 req.action='stop'
                 self.setRecordingServiceCb(req)
@@ -482,8 +482,6 @@ class RosBagManager:
         if (self.autostart):
             req=RecordRequest()
             req.action='stop'
-            #req.name='rosbag_%s'%self.createBagName();
-            #req.path='/tmp/autorosbag_%s'%self.createBagName();
             self.setRecordingServiceCb(req)
             self.switchToState(State.EMERGENCY_STATE)
             self.running = False
@@ -589,8 +587,8 @@ class RosBagManager:
         rospy.loginfo('RosbagManager:setRecorgingServiceCb: action %s, name = %s, path = %s'%(req.action, req.name, req.path))
 
         if self.max_disk_usage>0:
-            self.disk_capacity, self.disk_usage, self.free_disk_space = shutil.disk_usage(self.bag_path)
-            hdd_percentage = self.disk_usage * 100 / self.disk_capacity
+            total, used, _ = shutil.disk_usage(self.bag_path)
+            hdd_percentage = used * 100 / total
             # print log of hdd_percentage
             rospy.loginfo('RosbagManager: hdd used:%d percent, this node will store rosbags while the hdd used < %s percent '%(hdd_percentage,self.max_disk_usage))
             
