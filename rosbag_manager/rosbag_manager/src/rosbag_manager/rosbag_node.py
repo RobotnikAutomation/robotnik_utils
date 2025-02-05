@@ -772,7 +772,7 @@ def main():
       'regex': True, # use regular expressions to subscribe to topics
       'autostart': False,
       'max_disk_usage_recording': 90, # If hdd % used > max_disk_usage stop rosbag, if 0 no check
-      'max_disk_usage': 25 # If hdd % used > max_disk_usage stop rosbag, if 0 no check
+      'max_disk_usage': 85 # If hdd % used > max_disk_usage stop rosbag, if 0 no check
     }
 
     args = {}
