@@ -677,7 +677,7 @@ class RosBagManager:
         try:
             os.makedirs(path)
             return 0
-        except exceptions.OSError as e:
+        except OSError as e:
             if e.errno != errno.EEXIST:
                 rospy.logerr('RosBagManager:createDirectoryTree: %s'%(e))
                 return -1
@@ -691,7 +691,7 @@ class RosBagManager:
             for bag_filename in self.getBagFilepaths(self.process_manager.output_path_):
                 os.remove(bag_filename)
             return 0
-        except exceptions.OSError as e:
+        except OSError as e:
             rospy.logerr('RosBagManager:deleteFiles: %s'%(e))
             return -1
 
