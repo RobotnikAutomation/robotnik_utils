@@ -477,10 +477,10 @@ class RosBagManager:
 
         if self.max_disk_usage_limit>0:
             hdd_percentage = RosBagManager.__get_usage_disk_percentage(self.bag_path) * 100
-            rospy.logdebug_throttle(1, 'RosbagManager::readyState:: hdd used:%.2f%%, this node will store rosbags while the hdd used < %.2f%%'%(hdd_percentage,self.max_disk_usage_limit))
+            rospy.logdebug_throttle(30, 'RosbagManager::readyState:: hdd used:%.2f%%, this node will store rosbags while the hdd used < %.2f%%'%(hdd_percentage,self.max_disk_usage_limit))
             
             if hdd_percentage >= self.max_disk_usage_limit:
-                rospy.logerr('RosbagManager::readyState:: hdd used:%.2f%% > max_disk_usage_at_start defined:%.2f%%'%(hdd_percentage,self.max_disk_usage_limit))
+                rospy.logerr('RosbagManager::readyState:: hdd used:%.2f%% > max_disk_usage_limit defined:%.2f%%'%(hdd_percentage,self.max_disk_usage_limit))
                 req=RecordRequest()
                 req.action='stop'
                 self.setRecordingServiceCb(req)
@@ -570,6 +570,17 @@ class RosBagManager:
             return 'UNKNOWN_STATE'
 
 
+    def resetStatusMsg(self):
+        """
+        Resets the status message values to their defaults.
+        """
+        self.msg_status.time_recording = 0
+        self.msg_status.stored_size = 0.0
+        self.msg_status.path = ''
+        self.msg_status.compression = False
+        self.msg_status.regex = False
+        self.msg_status.bag_name = ''
+
     def publishROSstate(self):
         '''
             Publish the State of the component at the desired frequency
@@ -608,6 +619,7 @@ class RosBagManager:
 
                 if hdd_percentage >= self.max_disk_usage_at_start:
                     rospy.logerr('RosbagManager: hdd used:%.2f > max_disk_usage_at_start defined:%s'%(hdd_percentage,self.max_disk_usage_at_start))
+                    self.resetStatusMsg()
                     return False, 'Insufficient disk space to start recording rosbag'
 
             folder_path = req.path
@@ -632,6 +644,7 @@ class RosBagManager:
 
             if self.process_manager.runCommand() != 0:
                 rospy.logerr('RosbagManager:setRecorgingServiceCb: Error executing the command')
+                self.resetStatusMsg()
                 return False, 'Error running the rosbag process'
 
             self.init_record_time = rospy.Time.now()
@@ -659,6 +672,7 @@ class RosBagManager:
             if req.action == RecordRequest.DISCARD:
                 self.deleteFiles()
             self.is_recording = False
+            self.resetStatusMsg()
             return True, "Stop recording"
 
         elif self.is_recording and req.action == RecordRequest.START:

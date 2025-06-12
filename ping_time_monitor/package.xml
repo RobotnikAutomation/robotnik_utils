@@ -1,28 +1,33 @@
 <?xml version="1.0"?>
-<package>
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>ping_time_monitor</name>
-  <version>1.0.0</version>
+  <version>1.1.1</version>
   <description>The ping_time_monitor package</description>
 
   <maintainer email="rnavarro@robotnik.es">Román Navarro</maintainer>
+  <license>BSD-3-Clause</license>
 
-  <license>BSD</license>
+  <url type="website">https://github.com/RobotnikAutomation/robotnik_utils</url>
+  <url type="repository">https://github.com/RobotnikAutomation/robotnik_utils.git</url>
+  <url type="bugtracker">https://github.com/RobotnikAutomation/robotnik_utils/issues</url>
 
-  <!--   <test_depend>gtest</test_depend> -->
+  <author email="rnavarro@robotnik.es">Román Navarro</author>
+
   <buildtool_depend>catkin</buildtool_depend>
   <buildtool_depend>genmsg</buildtool_depend>
+
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>robotnik_msgs</build_depend>
   <build_depend>message_generation</build_depend>
-  <run_depend>rospy</run_depend>
-  <run_depend>std_msgs</run_depend>
-  <run_depend>robotnik_msgs</run_depend>
-  <run_depend>message_runtime</run_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>robotnik_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
 
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
-
   </export>
 </package>

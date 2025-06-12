@@ -1,14 +1,23 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>node_manager</name>
-  <version>0.0.0</version>
+  <version>1.1.1</version>
   <description>The node_manager package</description>
 
-  <maintainer email="avillena@robotnik.es">Álvaro Villena</maintainer>
+  <maintainer email="rnavarro@robotnik.es">Román Navarro</maintainer>
+  <license>BSD-3-Clause</license>
 
-  <license>TODO</license>
+  <url type="website">https://github.com/RobotnikAutomation/robotnik_utils</url>
+  <url type="repository">https://github.com/RobotnikAutomation/robotnik_utils.git</url>
+  <url type="bugtracker">https://github.com/RobotnikAutomation/robotnik_utils/issues</url>
+
+  <author email="avillena@robotnik.es">Álvaro Villena</author>
 
   <buildtool_depend>catkin</buildtool_depend>
+
   <build_depend>rospy</build_depend>
   <build_depend>ping_time_monitor</build_depend>
   <build_depend>rosmon_msgs</build_depend>
@@ -19,8 +28,6 @@
   <exec_depend>ping_time_monitor</exec_depend>
   <exec_depend>rosmon_msgs</exec_depend>
 
-
   <export>
   </export>
-
 </package>
