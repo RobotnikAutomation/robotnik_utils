@@ -1,31 +1,20 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model
+   href="http://download.ros.org/schema/package_format3.xsd"
+   schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>rosbag_manager_msgs</name>
-  <version>0.1.0</version>
+  <version>1.1.1</version>
   <description>The rosbag_manager_msgs package</description>
 
-  <!-- One maintainer tag required, multiple allowed, one person per tag -->
-  <!-- Example:  -->
-  <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
   <maintainer email="rnavarro@robotnik.es">Román Navarro</maintainer>
+  <license>BSD-3-Clause</license>
 
+  <url type="website">https://github.com/RobotnikAutomation/robotnik_utils</url>
+  <url type="repository">https://github.com/RobotnikAutomation/robotnik_utils.git</url>
+  <url type="bugtracker">https://github.com/RobotnikAutomation/robotnik_utils/issues</url>
 
-  <!-- One license tag required, multiple allowed, one license per tag -->
-  <!-- Commonly used license strings: -->
-  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>BSD</license>
-
-
-  <!-- Url tags are optional, but multiple are allowed, one per tag -->
-  <!-- Optional attribute type can be: website, bugtracker, or repository -->
-  <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/rosbag_manager_msgs</url> -->
-
-
-  <!-- Author tags are optional, multiple are allowed, one per tag -->
-  <!-- Authors do not have to be maintainers, but could be -->
-  <!-- Example: -->
-  <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
+  <author email="rnavarro@robotnik.es">Román Navarro</author>
 
   <buildtool_depend>catkin</buildtool_depend>
 
@@ -36,9 +25,6 @@
   <build_depend>robotnik_msgs</build_depend>
   <exec_depend>robotnik_msgs</exec_depend>
 
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
-
   </export>
 </package>
